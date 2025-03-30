@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="list_view_order.ListOrderItem">
+        <div t-att-data-field_id="props.field.id" t-attf-class="o_export_tree_item d-flex align-items-center justify-content-between py-2 ps-4 border-bottom {{ props.field.parent ? '' : 'pe-3'}}" role="treeitem" t-on-click.stop="() => this.onDoubleClick(props.field.id)" t-on-dblclick="() => this.onDoubleClick(props.field.id)">
+            <div t-attf-class="o_tree_column flex-grow-1 {{ props.field.required ? 'fw-bolder' : ''}}">
+                <span t-if="props.field.id" class="overflow-hidden" t-esc="`${props.field.string} (${props.field.name})`" />
+                <span t-else="" class="overflow-hidden" t-esc="props.field.string" />
+            </div>
+            <button title="Select field" t-attf-class="btn btn-sm btn-light border-0 fa fa-plus o_add_field {{ isFieldSelected(props.field.id) ? 'o_inactive opacity-25' : '' }}" t-on-click.stop="(ev) => !this.isFieldSelected(this.props.field.id) and this.props.onAdd(this.props.field.id)" />
+        </div>
+    </t>
+
+    <t t-name="list_view_order.ListOrderDialog">
+        <Dialog contentClass="'o_export_data_dialog'" title="title" size="'lg'">
+            <div class="row g-3 w-100">
+                <p class="text-muted mb-3 col-12">
+                    Select fields to be shown in the list view. You can rearrange the fields once selected.
+                </p>
+                <div class="o_left_panel col-12 col-md-6 h-100 d-flex flex-column flex-nowrap p-3 bg-light rounded">
+                    <h4 class="mt-0 mb-3">Available fields</h4>
+                    <input t-ref="search" type="search" class="form-control mb-3 o_export_search_input" id="o-export-search-filter" placeholder="Search..." t-on-input="onSearch" />
+                    <div class="o_left_field_panel h-100 overflow-auto border rounded bg-white p-2">
+                        <div class="o_field_tree_structure">
+                            <t t-if="fieldsAvailable">
+                                <t t-foreach="rootFields" t-as="field" t-key="field.id + '_' + state.search.length + '_' + state.isCompatible">
+                                    <ListOrderItem
+                                        orderList="state.orderList"
+                                        field="field"
+                                        isDebug="isDebug"
+                                        loadFields.bind="loadFields"
+                                        onAdd.bind="onAddItemExportList"
+                                    />
+                                </t>
+                            </t>
+                            <h3 t-else="" class="text-center text-muted mt-5 o_no_match">No match found.</h3>
+                        </div>
+                    </div>
+                </div>
+                <div t-attf-class="o_right_panel col-12 col-md-6 {{ state.isSmall ? 'h-50' : 'h-100' }} d-flex flex-column flex-nowrap p-3 bg-light rounded">
+                    <h4 class="mt-0 mb-3">Visible fields</h4>
+                    <div class="o_right_field_panel h-100 overflow-auto border rounded bg-white p-2">
+                        <ul class="o_fields_list list-unstyled mb-0" t-ref="draggable">
+                            <div t-ref="settingsContainer">
+                                <t t-foreach="state.orderList" t-as="field" t-key="field.id">
+                                    <li t-attf-class="o_export_field d-flex align-items-center w-100 py-2 border-bottom {{ state.isSmall ? '' : 'o_export_field_sortable' }}" t-att-data-field_id="field.id">
+                                        <div class="o_drag_handle d-flex align-items-center pe-2 text-muted" t-attf-style="opacity:{{ state.orderList.length === 1 ? 0.25 : 1 }}; cursor: {{ state.orderList.length === 1 ? 'default' : 'move' }}">
+                                            <i class="fa fa-bars mx-2"/>
+                                        </div>
+                                        <div class="flex-grow-1 d-flex align-items-center justify-content-between">
+                                            <span
+                                                t-esc="field.id ? `${field.string} (${field.name})` : field.string"
+                                                t-attf-class="{{ ['optional_hide', 'optional_show'].includes(getFieldVisibility(field.id)) ? 'text-muted fst-italic' : '' }}"
+                                            />
+                                            <div class="d-flex align-items-center">
+                                                <button class="btn btn-sm btn-light border-0 p-1 mx-1 d-flex align-items-center" title="Field Visibility" t-on-click="(ev) => this.toggleFieldSettings(field.id, ev.target)">
+                                                    <i class="fa fa-cog"/>
+                                                </button>
+                                                <button t-att-title="removeFieldText" class="btn btn-sm btn-light border-0 p-1 mx-1 text-danger" t-on-click.stop="() => this.onRemoveItemExportList(field.id)">
+                                                    <i class="fa fa-trash"/>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <Popover t-if="state.activePopover and state.activePopover.fieldId === field.id" target="state.activePopover.target">
+                                            <div class="p-3" style="min-width: 250px;">
+                                                <div class="fw-bold mb-2">Field Visibility</div>
+                                                <div class="mb-3 d-grid gap-1">
+                                                    <t t-foreach="visibilityOptions" t-as="option" t-key="option.id">
+                                                        <button
+                                                            type="button"
+                                                            t-attf-class="btn btn-sm {{ getFieldVisibility(field.id) === option.id ? 'btn-secondary border border-primary shadow-sm' : 'btn-outline-secondary' }}"
+                                                            t-on-click="() => this.setFieldVisibility(field.id, option.id)">
+                                                            <t t-esc="option.label"/>
+                                                        </button>
+                                                    </t>
+                                                </div>
+                                                <div class="fw-bold mb-2">Field Properties</div>
+                                                <div class="mb-2">
+                                                    <label class="form-label small mb-1">Label</label>
+                                                    <input type="text" class="form-control form-control-sm"
+                                                           t-att-value="getFieldString(field.id)"
+                                                           t-on-input="(ev) => this.setTempFieldString(field.id, ev.target.value)"/>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label small mb-1">Widget</label>
+                                                    <input type="text" class="form-control form-control-sm"
+                                                           t-att-value="getFieldWidget(field.id)"
+                                                           t-on-input="(ev) => this.setTempFieldWidget(field.id, ev.target.value)"/>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label small mb-1">Decorations</label>
+                                                    <input type="text" class="form-control form-control-sm"
+                                                           t-att-value="getFieldDecorations(field.id)"
+                                                           t-on-input="(ev) => this.setTempFieldDecorations(field.id, ev.target.value)"/>
+                                                </div>
+                                                <div class="d-flex justify-content-end pt-2 border-top">
+                                                    <button class="btn btn-sm btn-secondary me-2" t-on-click="() => this.closePopover()">Cancel</button>
+                                                    <button class="btn btn-sm btn-primary" t-on-click="() => this.saveFieldProperties(field.id)">Save</button>
+                                                </div>
+                                            </div>
+                                        </Popover>
+                                    </li>
+                                </t>
+                            </div>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <t t-set-slot="footer">
+                <button class="btn btn-primary o_select_button" data-hotkey="v" t-on-click.stop="onClickOrderList" t-att-disabled="state.disabled">Save Order</button>
+                <button class="btn btn-secondary o_select_button" data-hotkey="v" t-on-click.stop="onClickDeleteOrderList" t-att-disabled="state.disabled">Delete Current Order</button>
+                <button class="btn btn-secondary o_form_button_cancel" data-hotkey="z" t-on-click.stop="props.close">Cancel</button>
+            </t>
+        </Dialog>
+    </t>
+
+</templates>

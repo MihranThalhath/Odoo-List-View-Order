@@ -1,0 +1,37 @@
+<odoo>
+
+    <record id="list_order_tree_view" model="ir.ui.view">
+        <field name="name">list.order.tree</field>
+        <field name="model">list.order</field>
+        <field name="arch" type="xml">
+            <tree string="List Order" create="0" edit="0">
+                <field name="user_id" widget="many2one" />
+                <field name="ir_model_id" widget="many2one" />
+                <field name="ir_ui_view_id" widget="many2one" />
+            </tree>
+        </field>
+    </record>
+
+    <record id="list_order_search_view" model="ir.ui.view">
+        <field name="name">list.order.search</field>
+        <field name="model">list.order</field>
+        <field name="arch" type="xml">
+            <search string="List Order Search">
+                <field name="user_id" />
+                <field name="ir_model_id" />
+                <field name="ir_ui_view_id" />
+            </search>
+        </field>
+    </record>
+
+    <record id="list_order_action" model="ir.actions.act_window">
+        <field name="name">List Orders</field>
+        <field name="res_model">list.order</field>
+        <field name="view_id" ref="list_order_tree_view" />
+        <field name="search_view_id" ref="list_order_search_view" />
+    </record>
+
+    <menuitem action="list_order_action" id="menu_list_order_action"
+        parent="base.next_id_2" sequence="50" />
+
+</odoo>

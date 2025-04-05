@@ -4,7 +4,7 @@
     "author": "Mihran Thalhath",
     "website": "https://www.mihranthalhath.com",
     "license": "OPL-1",
-    "category": "Uncategorized",
+    "category": "Tools",
     "version": "17.0.1.0.0",
     "depends": ["web"],
     "data": [
@@ -12,6 +12,7 @@
         "security/ir.model.access.csv",
         "views/list_order.xml",
     ],
+    "images": ["static/description/images/list_view_order.png"],
     "assets": {
         "web.assets_backend": [
             "list_view_order/static/src/views/view_dialogs/**.js",

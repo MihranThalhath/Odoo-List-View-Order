@@ -11,6 +11,45 @@
         </div>
     </t>
 
+    <t t-name="list_view_order.PopoverField">
+        <div class="p-3" style="min-width: 250px;">
+            <div class="fw-bold mb-2">Field Visibility</div>
+            <div class="mb-3 d-grid gap-1">
+                <t t-foreach="visibilityOptions" t-as="option" t-key="option.id">
+                    <button
+                        type="button"
+                        t-attf-class="btn btn-sm {{ getFieldVisibility() === option.id ? 'btn-secondary border border-primary shadow-sm' : 'btn-outline-secondary' }}"
+                        t-on-click="() => this.setFieldVisibility(null, option.id)">
+                        <t t-esc="option.label"/>
+                    </button>
+                </t>
+            </div>
+            <div class="fw-bold mb-2">Field Properties</div>
+            <div class="mb-2">
+                <label class="form-label small mb-1">Label</label>
+                <input type="text" class="form-control form-control-sm"
+                       t-att-value="getFieldString()"
+                       t-on-input="(ev) => this.setTempFieldString(null, ev.target.value)"/>
+            </div>
+            <div class="mb-2">
+                <label class="form-label small mb-1">Widget</label>
+                <input type="text" class="form-control form-control-sm"
+                       t-att-value="getFieldWidget()"
+                       t-on-input="(ev) => this.setTempFieldWidget(null, ev.target.value)"/>
+            </div>
+            <div class="mb-3">
+                <label class="form-label small mb-1">Decorations</label>
+                <input type="text" class="form-control form-control-sm"
+                       t-att-value="getFieldDecorations()"
+                       t-on-input="(ev) => this.setTempFieldDecorations(null, ev.target.value)"/>
+            </div>
+            <div class="d-flex justify-content-end pt-2 border-top">
+                <button class="btn btn-sm btn-secondary me-2" t-on-click="() => this.onCancel()">Cancel</button>
+                <button class="btn btn-sm btn-primary" t-on-click="() => this.onSave()">Save</button>
+            </div>
+        </div>
+    </t>
+
     <t t-name="list_view_order.ListOrderDialog">
         <Dialog contentClass="'o_export_data_dialog'" title="title" size="'lg'">
             <div class="row g-3 w-100">
@@ -61,43 +100,11 @@
                                                 </button>
                                             </div>
                                         </div>
-                                        <Popover t-if="state.activePopover and state.activePopover.fieldId === field.id" target="state.activePopover.target">
-                                            <div class="p-3" style="min-width: 250px;">
-                                                <div class="fw-bold mb-2">Field Visibility</div>
-                                                <div class="mb-3 d-grid gap-1">
-                                                    <t t-foreach="visibilityOptions" t-as="option" t-key="option.id">
-                                                        <button
-                                                            type="button"
-                                                            t-attf-class="btn btn-sm {{ getFieldVisibility(field.id) === option.id ? 'btn-secondary border border-primary shadow-sm' : 'btn-outline-secondary' }}"
-                                                            t-on-click="() => this.setFieldVisibility(field.id, option.id)">
-                                                            <t t-esc="option.label"/>
-                                                        </button>
-                                                    </t>
-                                                </div>
-                                                <div class="fw-bold mb-2">Field Properties</div>
-                                                <div class="mb-2">
-                                                    <label class="form-label small mb-1">Label</label>
-                                                    <input type="text" class="form-control form-control-sm"
-                                                           t-att-value="getFieldString(field.id)"
-                                                           t-on-input="(ev) => this.setTempFieldString(field.id, ev.target.value)"/>
-                                                </div>
-                                                <div class="mb-2">
-                                                    <label class="form-label small mb-1">Widget</label>
-                                                    <input type="text" class="form-control form-control-sm"
-                                                           t-att-value="getFieldWidget(field.id)"
-                                                           t-on-input="(ev) => this.setTempFieldWidget(field.id, ev.target.value)"/>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label small mb-1">Decorations</label>
-                                                    <input type="text" class="form-control form-control-sm"
-                                                           t-att-value="getFieldDecorations(field.id)"
-                                                           t-on-input="(ev) => this.setTempFieldDecorations(field.id, ev.target.value)"/>
-                                                </div>
-                                                <div class="d-flex justify-content-end pt-2 border-top">
-                                                    <button class="btn btn-sm btn-secondary me-2" t-on-click="() => this.closePopover()">Cancel</button>
-                                                    <button class="btn btn-sm btn-primary" t-on-click="() => this.saveFieldProperties(field.id)">Save</button>
-                                                </div>
-                                            </div>
+                                        <Popover
+                                            t-if="state.activePopover and state.activePopover.fieldId === field.id"
+                                            target="state.activePopover.target"
+                                            component="state.activePopover.contentClass"
+                                            close="() => this.closePopover()">
                                         </Popover>
                                     </li>
                                 </t>

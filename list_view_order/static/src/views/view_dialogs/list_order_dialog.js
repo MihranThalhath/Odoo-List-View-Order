@@ -10,6 +10,8 @@ import {useService} from "@web/core/utils/hooks";
 import {fuzzyLookup} from "@web/core/utils/search";
 import {useSortable} from "@web/core/utils/sortable_owl";
 import {useDebounced} from "@web/core/utils/timing";
+import {rpc} from "@web/core/network/rpc";
+import {user} from "@web/core/user";
 
 import {
     Component,
@@ -47,6 +49,61 @@ ListOrderItem.props = {
     loadFields: Function,
 };
 
+function PopoverContentFunc(parent, fieldId) {
+    return class PopoverContentClass extends Component {
+        static template = "list_view_order.PopoverField";
+        static props = {
+            close: Function,
+        };
+
+        get visibilityOptions() {
+            return parent.visibilityOptions;
+        }
+
+        getFieldVisibility() {
+            return parent.getFieldVisibility(fieldId);
+        }
+
+        getFieldString() {
+            return parent.getFieldString(fieldId);
+        }
+
+        getFieldWidget() {
+            return parent.getFieldWidget(fieldId);
+        }
+
+        getFieldDecorations() {
+            return parent.getFieldDecorations(fieldId);
+        }
+
+        setFieldVisibility(id, visibility) {
+            parent.setFieldVisibility(fieldId, visibility);
+        }
+
+        setTempFieldString(id, value) {
+            parent.setTempFieldString(fieldId, value);
+        }
+
+        setTempFieldWidget(id, value) {
+            parent.setTempFieldWidget(fieldId, value);
+        }
+
+        setTempFieldDecorations(id, value) {
+            parent.setTempFieldDecorations(fieldId, value);
+        }
+
+        onCancel() {
+            parent.closePopover();
+            this.props.close();
+        }
+
+        onSave() {
+            parent.saveFieldProperties(fieldId);
+            this.props.close();
+        }
+    };
+}
+
 const listOrderCache = new Map();
 
 const getCacheKey = (resModel, viewId, userId) => `${resModel}-${viewId}-${userId}`;
@@ -56,8 +113,6 @@ export class ListOrderDialog extends Component {
         this.dialog = useService("dialog");
         this.notification = useService("notification");
         this.orm = useService("orm");
-        this.rpc = useService("rpc");
-        this.userService = useService("user");
         this.draggableRef = useRef("draggable");
         this.orderListRef = useRef("orderList");
         this.searchRef = useRef("search");
@@ -181,9 +236,6 @@ export class ListOrderDialog extends Component {
         this.state.isSmall = this.env.isSmall;
     }
 
-    /**
-     * Load fields to display and (re)set the list of available fields
-     */
     async fetchFields() {
         this.state.search = [];
         this.knownFields = {};
@@ -199,7 +251,7 @@ export class ListOrderDialog extends Component {
         const cacheKey = getCacheKey(
             this.props.root.resModel,
             this.props.viewId,
-            this.userService.context.uid
+            user.context.uid
         );
         if (listOrderCache.has(cacheKey)) {
             const cachedData = listOrderCache.get(cacheKey);
@@ -207,8 +259,8 @@ export class ListOrderDialog extends Component {
             return;
         }
 
-        const fieldsData = await this.rpc("/web/list/get_current_list", {
-            user_id: this.userService.context.uid,
+        const fieldsData = await rpc("/web/list/get_current_list", {
+            user_id: user.context.uid,
             model: this.props.root.resModel,
             view_id: this.props.viewId,
         });
@@ -436,7 +488,7 @@ export class ListOrderDialog extends Component {
             "list.order",
             "action_process_order_list",
             [
-                this.userService.context.uid,
+                user.context.uid,
                 this.props.root.resModel,
                 fieldsWithProperties,
                 this.props.viewId,
@@ -447,7 +499,7 @@ export class ListOrderDialog extends Component {
         const cacheKey = getCacheKey(
             this.props.root.resModel,
             this.props.viewId,
-            this.userService.context.uid
+            user.context.uid
         );
         listOrderCache.delete(cacheKey);
 
@@ -462,14 +514,14 @@ export class ListOrderDialog extends Component {
         await this.orm.call(
             "list.order",
             "action_delete_order_list",
-            [this.userService.context.uid, this.props.root.resModel, this.props.viewId],
+            [user.context.uid, this.props.root.resModel, this.props.viewId],
             {}
         );
 
         const cacheKey = getCacheKey(
             this.props.root.resModel,
             this.props.viewId,
-            this.userService.context.uid
+            user.context.uid
         );
         listOrderCache.delete(cacheKey);
 
@@ -507,12 +559,15 @@ export class ListOrderDialog extends Component {
             this.state.activePopover = {
                 fieldId,
                 target: targetElement,
+                contentClass: PopoverContentFunc(this, fieldId),
             };
         }
     }
+
     closePopover() {
         this.state.activePopover = null;
     }
+
     saveFieldProperties(fieldId) {
         if (this.state.tempFieldSettings[fieldId]) {
             const temps = this.state.tempFieldSettings[fieldId];

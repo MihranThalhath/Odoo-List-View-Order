@@ -7,55 +7,48 @@ import {patch} from "@web/core/utils/patch";
 import {registry} from "@web/core/registry";
 import {ListRenderer} from "@web/views/list/list_renderer";
 import {ListOrderDialog} from "@list_view_order/views/view_dialogs/list_order_dialog";
-import {_t} from "@web/core/l10n/translation";
 import {onWillDestroy, onWillStart, onWillUpdateProps, useState} from "@odoo/owl";
 import {unique} from "@web/core/utils/arrays";
 import {evaluateBooleanExpr} from "@web/core/py_js/py";
 import {session} from "@web/session";
+import {rpc} from "@web/core/network/rpc";
+import {user} from "@web/core/user";
 
 export const patchListViewRendererController = () => ({
     setup() {
         super.setup();
         this.orm = useService("orm");
-        this.rpc = useService("rpc");
-        this.userService = useService("user");
         this.actionService = useService("action");
         this.dialogService = useService("dialog");
-        this.originalNonInvisibleColumns = this.allColumns.filter(
-            (col) => !this.evalColumnInvisible(col.column_invisible)
-        );
+        this.originalNonInvisibleColumns = [];
         const list = this.props.list;
         const {actionId, actionType} = this.env.config || {};
 
-        const isListViewPotentiallyEditable =
+        this.isListViewPotentiallyEditable =
             !isMobileOS() &&
             !this.env.inDialog &&
             session.modify_list_view &&
             list === list.model.root &&
             actionId &&
             actionType === "ir.actions.act_window";
-        this.listViewEditable = useState({value: isListViewPotentiallyEditable});
-        if (
-            !this.isX2Many &&
-            session.modify_list_view &&
-            isListViewPotentiallyEditable
-        ) {
+        this.listViewEditable = useState({value: this.isListViewPotentiallyEditable});
+        this.isStateInitialized = false;
+        if (!this.isX2Many && session.modify_list_view && this.isListViewPotentiallyEditable) {
+            this.isStateInitialized = true;
             this.state = useState({
                 columns: [],
                 allModelColumns: [],
                 isCustomOrder: false,
                 orderedOptionalColumns: [],
+                customActiveColumns: [],
             });
         }
-        if (isListViewPotentiallyEditable) {
+        if (this.isListViewPotentiallyEditable) {
             const computeOrderListEditable = (action) => {
                 if (!action.xml_id) {
                     return false;
                 }
-                if (
-                    action.res_model.indexOf("settings") > -1 &&
-                    action.res_model.indexOf("x_") !== 0
-                ) {
+                if (action.res_model.indexOf("settings") > -1 && action.res_model.indexOf("x_") !== 0) {
                     return false;
                 }
                 if (action.res_model === "board.board") {
@@ -76,21 +69,22 @@ export const patchListViewRendererController = () => ({
                 }
                 stopListening();
             };
-            const stopListening = () =>
-                this.env.bus.removeEventListener(
-                    "ACTION_MANAGER:UI-UPDATED",
-                    onUiUpdated
-                );
+            const stopListening = () => this.env.bus.removeEventListener("ACTION_MANAGER:UI-UPDATED", onUiUpdated);
             this.env.bus.addEventListener("ACTION_MANAGER:UI-UPDATED", onUiUpdated);
 
             onWillStart(async () => {
-                if (!this.isX2Many && session.modify_list_view) {
+                this.allColumns = this.processAllColumn(this.props.archInfo.columns, this.props.list);
+                this.columns = this.getActiveColumns(this.props.list);
+                this.originalNonInvisibleColumns = this.allColumns.filter(
+                    (col) => !this.evalColumnInvisible(col.column_invisible)
+                );
+                if (this.isStateInitialized) {
                     await this.initializeColumns(this.props);
                 }
             });
 
             onWillUpdateProps(async (nextProps) => {
-                if (!this.isX2Many && session.modify_list_view) {
+                if (this.isStateInitialized) {
                     await this.initializeColumns(nextProps);
                 }
             });
@@ -100,7 +94,9 @@ export const patchListViewRendererController = () => ({
     },
 
     async initializeColumns(props) {
-        this.state.allModelColumns = await this.processModelFields(props.list);
+        if (this.isStateInitialized) {
+            this.state.allModelColumns = await this.processModelFields(props.list);
+        }
 
         let archColumns = [];
         if (props.archInfo?.columns) {
@@ -109,27 +105,27 @@ export const patchListViewRendererController = () => ({
         this.allColumns = archColumns;
 
         const result = await this.getCustomActiveColumns(props.list);
-        this.state.isCustomOrder = result.isCustomOrder;
+        if (this.isStateInitialized) {
+            this.state.isCustomOrder = result.isCustomOrder;
+        }
         this.keyOptionalFields = result.customKeyOptionalFields;
 
         let columnsToDisplay = [];
         let allCustomColumns = [];
 
-        if (this.state.isCustomOrder) {
+        if (this.isStateInitialized && this.state.isCustomOrder) {
             allCustomColumns = result.columnsFromOrder;
+            this.state.customActiveColumns = allCustomColumns;
             this.orderedOptionalColumns = result.orderedOptionalColumns;
 
             this.optionalActiveFields = {};
-            const storedFields = this.keyOptionalFields
-                ? browser.localStorage.getItem(this.keyOptionalFields)
-                : null;
+            const storedFields = this.keyOptionalFields ? browser.localStorage.getItem(this.keyOptionalFields) : null;
             const storedFieldsArray = storedFields ? storedFields.split(",") : [];
 
             allCustomColumns.forEach((col) => {
                 if (col.optional) {
                     if (storedFields !== null) {
-                        this.optionalActiveFields[col.name] =
-                            storedFieldsArray.includes(col.name);
+                        this.optionalActiveFields[col.name] = storedFieldsArray.includes(col.name);
                     } else {
                         this.optionalActiveFields[col.name] = col.optional === "show";
                     }
@@ -171,12 +167,14 @@ export const patchListViewRendererController = () => ({
 
             this.allColumns = archColumns;
         }
-
-        this.state.columns = columnsToDisplay;
+        if (this.isStateInitialized) {
+            this.state.columns = columnsToDisplay;
+        }
+        this.columns = columnsToDisplay;
     },
 
     async processModelFields(list) {
-        const fields = await this.rpc("/web/list/get_list_fields", {
+        const fields = await rpc("/web/list/get_list_fields", {
             model: list.resModel,
         });
 
@@ -199,21 +197,56 @@ export const patchListViewRendererController = () => ({
         if (!session.order_fields_list) {
             return this.originalNonInvisibleColumns;
         }
-        return await this.rpc("/web/list/get_list_fields", {
+        return await rpc("/web/list/get_list_fields", {
             ...parentParams,
             model,
             import_compat,
         });
     },
+
+    getActiveColumns(list) {
+        if (this.isStateInitialized && this.state.isCustomOrder) {
+            return this.columns;
+        }
+        return this.allColumns.filter((col) => {
+            if (list.isGrouped && col.widget === "handle") {
+                return false; // no handle column if the list is grouped
+            }
+            if (col.optional && !this.optionalActiveFields[col.name]) {
+                return false;
+            }
+            if (this.evalColumnInvisible(col.column_invisible)) {
+                return false;
+            }
+            return true;
+        });
+    },
+
+    computeOptionalActiveFields() {
+        if (this.isStateInitialized && this.state.isCustomOrder) {
+            return this.optionalActiveFields;
+        }
+        const localStorageValue = browser.localStorage.getItem(this.keyOptionalFields);
+        const optionalColumn = this.allColumns.filter((col) => col.type === "field" && col.optional);
+        const optionalActiveFields = {};
+        if (localStorageValue !== null) {
+            const localStorageOptionalActiveFields = localStorageValue.split(",");
+            for (const col of optionalColumn) {
+                optionalActiveFields[col.name] = localStorageOptionalActiveFields.includes(col.name);
+            }
+        } else {
+            for (const col of optionalColumn) {
+                optionalActiveFields[col.name] = col.optional === "show";
+            }
+        }
+        return optionalActiveFields;
+    },
+
     async getCustomActiveColumns(list) {
         const orderList = await this.orm.call(
             "list.order",
             "action_get_list_order",
-            [
-                this.userService.context.uid,
-                this.props.list.resModel,
-                this.env.config.viewId,
-            ],
+            [user.context.uid, this.props.list.resModel, this.env.config.viewId],
             {}
         );
 
@@ -237,7 +270,7 @@ export const patchListViewRendererController = () => ({
         }
 
         let processedOrderList = orderList;
-        if (this.state.isCustomOrder) {
+        if (this.isStateInitialized && this.state.isCustomOrder) {
             processedOrderList = orderList.map((order) => ({
                 ...order,
                 optional:
@@ -270,8 +303,7 @@ export const patchListViewRendererController = () => ({
 
             let decorations = {};
             if (order.decorations) {
-                const decorationPairs =
-                    order.decorations.match(/decoration-\w+="[^"]+"/g) || [];
+                const decorationPairs = order.decorations.match(/decoration-\w+="[^"]+"/g) || [];
                 decorationPairs.forEach((pair) => {
                     const [key, ...valueParts] = pair.split("=");
                     const value = valueParts.join("=");
@@ -290,9 +322,7 @@ export const patchListViewRendererController = () => ({
             };
         };
 
-        const columnsFromOrder = processedOrderList
-            .map(mapOrderToColumn)
-            .filter(Boolean);
+        const columnsFromOrder = processedOrderList.map(mapOrderToColumn).filter(Boolean);
 
         const orderedColumns = columnsFromOrder.filter((col) => {
             if (list.isGrouped && col.widget === "handle") return false;
@@ -305,7 +335,7 @@ export const patchListViewRendererController = () => ({
         );
 
         const customKeyOptionalFields =
-            `optional_fields_${this.userService.context.uid}_${this.props.list.resModel}_${this.env.config.viewId}_` +
+            `optional_fields_${user.context.uid}_${this.props.list.resModel}_${this.env.config.viewId}_` +
             orderedOptionalColumns
                 .map((col) => col.name)
                 .sort()
@@ -331,15 +361,11 @@ export const patchListViewRendererController = () => ({
         if (this.state.isCustomOrder) {
             optionalColumns =
                 this.orderedOptionalColumns?.filter(
-                    (col) =>
-                        col.optional && !this.evalColumnInvisible(col.column_invisible)
+                    (col) => col.optional && !this.evalColumnInvisible(col.column_invisible)
                 ) || [];
         } else {
             optionalColumns =
-                this.allColumns?.filter(
-                    (col) =>
-                        col.optional && !this.evalColumnInvisible(col.column_invisible)
-                ) || [];
+                this.allColumns?.filter((col) => col.optional && !this.evalColumnInvisible(col.column_invisible)) || [];
         }
 
         for (const col of optionalColumns) {
@@ -382,18 +408,16 @@ export const patchListViewRendererController = () => ({
 
         this.optionalActiveFields[fieldName] = !this.optionalActiveFields[fieldName];
 
-        if (this.props.onOptionalFieldsChanged) {
-            this.props.onOptionalFieldsChanged(this.optionalActiveFields);
-        }
-
-        this.state.columns = this.allColumns.filter((col) => {
+        this.state.columns = this.state.customActiveColumns.filter((col) => {
             if (this.props.list.isGrouped && col.widget === "handle") return false;
             if (this.evalColumnInvisible(col.column_invisible)) return false;
             if (col.optional) return this.optionalActiveFields[col.name];
             return true;
         });
+        this.columns = this.state.columns;
 
         this.saveOptionalActiveFields();
+        this.render();
     },
 
     async toggleOptionalFieldGroup(groupId) {
@@ -401,7 +425,7 @@ export const patchListViewRendererController = () => ({
             await super.toggleOptionalFieldGroup(groupId);
             return;
         }
-        const fieldNames = this.allColumns
+        const fieldNames = this.state.customActiveColumns
             .filter(
                 (col) =>
                     col.type === "field" &&
@@ -411,23 +435,18 @@ export const patchListViewRendererController = () => ({
             )
             .map((col) => col.name);
 
-        const active = !fieldNames.every(
-            (fieldName) => this.optionalActiveFields[fieldName]
-        );
+        const active = !fieldNames.every((fieldName) => this.optionalActiveFields[fieldName]);
         for (const fieldName of fieldNames) {
             this.optionalActiveFields[fieldName] = active;
         }
 
-        if (this.props.onOptionalFieldsChanged) {
-            this.props.onOptionalFieldsChanged(this.optionalActiveFields);
-        }
-
-        this.state.columns = this.allColumns.filter((col) => {
+        this.state.columns = this.state.customActiveColumns.filter((col) => {
             if (this.props.list.isGrouped && col.widget === "handle") return false;
             if (this.evalColumnInvisible(col.column_invisible)) return false;
             if (col.optional) return this.optionalActiveFields[col.name];
             return true;
         });
+        this.columns = this.state.columns;
 
         this.saveOptionalActiveFields();
     },
@@ -441,19 +460,14 @@ export const patchListViewRendererController = () => ({
             this.props.archInfo.columns
                 .filter((col) => col.type === "field")
                 .filter((col) => !col.optional || this.optionalActiveFields[col.name])
-                .filter(
-                    (col) =>
-                        !evaluateBooleanExpr(col.column_invisible, this.props.context)
-                )
+                .filter((col) => !evaluateBooleanExpr(col.column_invisible, this.props.context))
                 .map((col) => this.props.list.fields[col.name])
                 .filter((field) => field.exportable !== false)
         );
     },
 
     get hasOptionalFields() {
-        return this.allColumns.some(
-            (col) => col.optional && !this.evalColumnInvisible(col.column_invisible)
-        );
+        return this.allColumns.some((col) => col.optional && !this.evalColumnInvisible(col.column_invisible));
     },
 
     onSelectedRearrangeListView() {
@@ -485,9 +499,7 @@ export const patchListViewRendererController = () => ({
     saveOptionalActiveFields() {
         try {
             if (super.saveOptionalActiveFields) {
-                super.saveOptionalActiveFields(
-                    this.state.columns.filter((col) => col.optional)
-                );
+                super.saveOptionalActiveFields(this.columns.filter((col) => col.optional));
             }
         } catch (e) {
             console.error("Error calling super.saveOptionalActiveFields:", e);
@@ -498,11 +510,7 @@ export const patchListViewRendererController = () => ({
         }
 
         const activeOptionalFieldNames = Object.entries(this.optionalActiveFields)
-            .filter(
-                ([name, isActive]) =>
-                    isActive &&
-                    this.allColumns.some((col) => col.name === name && col.optional)
-            )
+            .filter(([name, isActive]) => isActive && this.allColumns.some((col) => col.name === name && col.optional))
             .map(([name, isActive]) => name)
             .join(",");
 
@@ -523,7 +531,4 @@ export const patchListViewRendererController = () => ({
     },
 });
 
-export const unpatchListViewRendererController = patch(
-    ListRenderer.prototype,
-    patchListViewRendererController()
-);
+export const unpatchListViewRendererController = patch(ListRenderer.prototype, patchListViewRendererController());

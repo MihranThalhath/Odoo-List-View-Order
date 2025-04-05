@@ -1,14 +1,14 @@
 <odoo>
 
-    <record id="list_order_tree_view" model="ir.ui.view">
-        <field name="name">list.order.tree</field>
+    <record id="list_order_list_view" model="ir.ui.view">
+        <field name="name">list.order.list</field>
         <field name="model">list.order</field>
         <field name="arch" type="xml">
-            <tree string="List Order" create="0" edit="0">
+            <list string="List Order" create="0" edit="0">
                 <field name="user_id" widget="many2one" />
                 <field name="ir_model_id" widget="many2one" />
                 <field name="ir_ui_view_id" widget="many2one" />
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -27,7 +27,7 @@
     <record id="list_order_action" model="ir.actions.act_window">
         <field name="name">List Orders</field>
         <field name="res_model">list.order</field>
-        <field name="view_id" ref="list_order_tree_view" />
+        <field name="view_id" ref="list_order_list_view" />
         <field name="search_view_id" ref="list_order_search_view" />
     </record>
 

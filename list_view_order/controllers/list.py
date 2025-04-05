@@ -26,7 +26,7 @@ class ListOrder(http.Controller):
             {
                 "id": field_name,
                 "name": field_name,
-                "string": field.get("string", field_name),  # Use field_name fallback
+                "string": field.get("string", field_name),
                 "field_type": field.get("type"),
                 "required": field.get("required", False),
                 "relation_field": field.get("relation_field"),
@@ -65,8 +65,8 @@ class ListOrder(http.Controller):
                     {
                         "label": label,
                         "name": field_name,
-                        "visibility": visibility,  # Map False to 'always'
-                        "string": label,  # Use same label
+                        "visibility": visibility,
+                        "string": label,
                         "widget": field_data.get("widget", ""),
                         "decorations": field_data.get("decorations", ""),
                     }

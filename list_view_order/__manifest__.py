@@ -5,7 +5,7 @@
     "website": "https://www.mihranthalhath.com",
     "license": "OPL-1",
     "category": "Uncategorized",
-    "version": "17.0.1.0.0",
+    "version": "18.0.1.0.0",
     "depends": ["web"],
     "data": [
         "security/res_group.xml",

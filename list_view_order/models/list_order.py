@@ -48,7 +48,7 @@ class ListOrder(models.Model):
         list_order = self.action_get_list_order_objects(user.id, model_name, view_id)
 
         if not list_order:
-            ir_model = self.env["ir.model"].search(
+            ir_model = self.env["ir.model"].sudo().search(
                 [("model", "=", model_name)], limit=1
             )
             if not ir_model:
@@ -77,7 +77,7 @@ class ListOrder(models.Model):
             if not field_name:
                 continue
 
-            ir_model_field = self.env["ir.model.fields"].search(
+            ir_model_field = self.env["ir.model.fields"].sudo().search(
                 [
                     ("model", "=", self.ir_model_name),
                     ("name", "=", field_name),

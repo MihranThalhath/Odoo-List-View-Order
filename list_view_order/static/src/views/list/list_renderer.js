@@ -477,6 +477,7 @@ export const patchListViewRendererController = () => ({
             getListFields: this.getListFields.bind(this),
             root: this.props.list.model.root,
             viewId: this.env.config.viewId,
+            archColumns: this.props.archInfo?.columns || [],
         };
         this.dialogService.add(ListOrderDialog, dialogProps);
     },

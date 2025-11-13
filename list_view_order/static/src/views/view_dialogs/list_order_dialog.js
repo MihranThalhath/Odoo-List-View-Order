@@ -452,11 +452,27 @@ export class ListOrderDialog extends Component {
     _ensureFieldProperties(fieldId) {
         if (!this.state.fieldProperties[fieldId]) {
             const fieldInfo = this.knownFields[fieldId];
+            const archColumn = this.props.archColumns?.find((col) => col.name === fieldInfo.name);
+
+            let widget = "";
+            let decorations = "";
+
+            if (archColumn) {
+                widget = archColumn.widget || "";
+
+                if (archColumn.decorations && Object.keys(archColumn.decorations).length > 0) {
+                    const decorationParts = Object.entries(archColumn.decorations).map(
+                        ([key, value]) => `decoration-${key}="${value}"`
+                    );
+                    decorations = decorationParts.join(" ");
+                }
+            }
+
             this.state.fieldProperties[fieldId] = {
                 visibility: FIELD_VISIBILITY.ALWAYS,
                 string: fieldInfo?.string || fieldId,
-                widget: "",
-                decorations: "",
+                widget: widget,
+                decorations: decorations,
             };
         }
     }
@@ -597,5 +613,6 @@ ListOrderDialog.props = {
     getListFields: {type: Function},
     root: {type: Object},
     viewId: {type: Number},
+    archColumns: {type: Array, optional: true},
 };
 ListOrderDialog.template = "list_view_order.ListOrderDialog";

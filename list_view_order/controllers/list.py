@@ -13,7 +13,7 @@ class ListOrder(http.Controller):
         )
         return fields
 
-    @http.route("/web/list/get_list_fields", type="json", auth="user")
+    @http.route("/web/list/get_list_fields", type="jsonrpc", auth="user")
     def get_list_fields(self, model) -> list:
         fields = self._get_model_fields(model)
 
@@ -41,7 +41,7 @@ class ListOrder(http.Controller):
 
         return records
 
-    @http.route("/web/list/get_current_list", type="json", auth="user")
+    @http.route("/web/list/get_current_list", type="jsonrpc", auth="user")
     def get_current_list(self, user_id, model, view_id) -> list:
         ordered_field_data = request.env["list.order"].action_get_list_order(
             user_id, model, view_id

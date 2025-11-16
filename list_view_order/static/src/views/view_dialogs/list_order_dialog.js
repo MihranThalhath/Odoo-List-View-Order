@@ -13,14 +13,7 @@ import {useDebounced} from "@web/core/utils/timing";
 import {rpc} from "@web/core/network/rpc";
 import {user} from "@web/core/user";
 
-import {
-    Component,
-    useRef,
-    useState,
-    onMounted,
-    onWillStart,
-    onWillUnmount,
-} from "@odoo/owl";
+import {Component, useRef, useState, onMounted, onWillStart, onWillUnmount} from "@odoo/owl";
 
 const FIELD_VISIBILITY = {
     ALWAYS: "always",
@@ -184,9 +177,7 @@ export class ListOrderDialog extends Component {
 
         let targetIndex;
         if (previousId) {
-            const previousIndex = this.state.orderList.findIndex(
-                (f) => f.id === previousId
-            );
+            const previousIndex = this.state.orderList.findIndex((f) => f.id === previousId);
             targetIndex = previousIndex + 1;
         } else if (nextId) {
             targetIndex = this.state.orderList.findIndex((f) => f.id === nextId);
@@ -221,9 +212,7 @@ export class ListOrderDialog extends Component {
             const rootFromSearchResults = this.fieldsAvailable.map((f) => {
                 if (f.parent) {
                     const parentEl = this.knownFields[f.parent.id];
-                    return this.knownFields[
-                        parentEl.parent ? parentEl.parent.id : parentEl.id
-                    ];
+                    return this.knownFields[parentEl.parent ? parentEl.parent.id : parentEl.id];
                 }
                 return this.knownFields[f.id];
             });
@@ -248,11 +237,7 @@ export class ListOrderDialog extends Component {
     }
 
     async loadOrderList() {
-        const cacheKey = getCacheKey(
-            this.props.root.resModel,
-            this.props.viewId,
-            user.context.uid
-        );
+        const cacheKey = getCacheKey(this.props.root.resModel, this.props.viewId, user.context.uid);
         if (listOrderCache.has(cacheKey)) {
             const cachedData = listOrderCache.get(cacheKey);
             this._updateStateFromFields(cachedData);
@@ -341,11 +326,7 @@ export class ListOrderDialog extends Component {
         if (preventLoad) {
             return;
         }
-        const fields = await this.props.getListFields(
-            model,
-            this.state.isCompatible,
-            parentParams
-        );
+        const fields = await this.props.getListFields(model, this.state.isCompatible, parentParams);
         for (const field of fields) {
             field.parent = parentField;
             if (!this.knownFields[field.id]) {
@@ -392,9 +373,7 @@ export class ListOrderDialog extends Component {
             return this.state.tempFieldSettings[fieldId].visibility;
         }
         this._ensureFieldProperties(fieldId);
-        return (
-            this.state.fieldProperties[fieldId]?.visibility || FIELD_VISIBILITY.ALWAYS
-        );
+        return this.state.fieldProperties[fieldId]?.visibility || FIELD_VISIBILITY.ALWAYS;
     }
 
     getFieldString(fieldId) {
@@ -402,11 +381,7 @@ export class ListOrderDialog extends Component {
             return this.state.tempFieldSettings[fieldId].string;
         }
         this._ensureFieldProperties(fieldId);
-        return (
-            this.state.fieldProperties[fieldId]?.string ||
-            this.knownFields[fieldId]?.string ||
-            ""
-        );
+        return this.state.fieldProperties[fieldId]?.string || this.knownFields[fieldId]?.string || "";
     }
 
     getFieldWidget(fieldId) {
@@ -452,23 +427,36 @@ export class ListOrderDialog extends Component {
     _ensureFieldProperties(fieldId) {
         if (!this.state.fieldProperties[fieldId]) {
             const fieldInfo = this.knownFields[fieldId];
+            const archColumn = this.props.archColumns?.find((col) => col.name === fieldInfo.name);
+
+            let widget = "";
+            let decorations = "";
+
+            if (archColumn) {
+                widget = archColumn.widget || "";
+
+                if (archColumn.decorations && Object.keys(archColumn.decorations).length > 0) {
+                    const decorationParts = Object.entries(archColumn.decorations).map(
+                        ([key, value]) => `decoration-${key}="${value}"`
+                    );
+                    decorations = decorationParts.join(" ");
+                }
+            }
+
             this.state.fieldProperties[fieldId] = {
                 visibility: FIELD_VISIBILITY.ALWAYS,
                 string: fieldInfo?.string || fieldId,
-                widget: "",
-                decorations: "",
+                widget: widget,
+                decorations: decorations,
             };
         }
     }
 
     async onClickOrderList() {
         if (!this.state.orderList.length) {
-            return this.notification.add(
-                _t("Please select fields to save order list..."),
-                {
-                    type: "danger",
-                }
-            );
+            return this.notification.add(_t("Please select fields to save order list..."), {
+                type: "danger",
+            });
         }
         this.state.disabled = true;
 
@@ -476,9 +464,7 @@ export class ListOrderDialog extends Component {
             id: field.id,
             name: field.name,
             label: this.getFieldString(field.id),
-            visibility: this._mapClientVisibilityToServer(
-                this.getFieldVisibility(field.id)
-            ),
+            visibility: this._mapClientVisibilityToServer(this.getFieldVisibility(field.id)),
             string: this.getFieldString(field.id),
             widget: this.getFieldWidget(field.id),
             decorations: this.getFieldDecorations(field.id),
@@ -487,20 +473,11 @@ export class ListOrderDialog extends Component {
         await this.orm.call(
             "list.order",
             "action_process_order_list",
-            [
-                user.context.uid,
-                this.props.root.resModel,
-                fieldsWithProperties,
-                this.props.viewId,
-            ],
+            [user.context.uid, this.props.root.resModel, fieldsWithProperties, this.props.viewId],
             {}
         );
 
-        const cacheKey = getCacheKey(
-            this.props.root.resModel,
-            this.props.viewId,
-            user.context.uid
-        );
+        const cacheKey = getCacheKey(this.props.root.resModel, this.props.viewId, user.context.uid);
         listOrderCache.delete(cacheKey);
 
         this.state.disabled = false;
@@ -518,11 +495,7 @@ export class ListOrderDialog extends Component {
             {}
         );
 
-        const cacheKey = getCacheKey(
-            this.props.root.resModel,
-            this.props.viewId,
-            user.context.uid
-        );
+        const cacheKey = getCacheKey(this.props.root.resModel, this.props.viewId, user.context.uid);
         listOrderCache.delete(cacheKey);
 
         this.state.disabled = false;
@@ -538,18 +511,13 @@ export class ListOrderDialog extends Component {
         if (!value) return [];
 
         const fieldsArray = Object.values(this.knownFields);
-        const fuzzyResults = fuzzyLookup(value, fieldsArray, (field) =>
-            field.string.split("/").reverse().join("/")
-        );
+        const fuzzyResults = fuzzyLookup(value, fieldsArray, (field) => field.string.split("/").reverse().join("/"));
 
         if (!this.isDebug) {
             return fuzzyResults;
         }
 
-        return unique([
-            ...fuzzyResults,
-            ...fieldsArray.filter((f) => f.id.includes(value)),
-        ]);
+        return unique([...fuzzyResults, ...fieldsArray.filter((f) => f.id.includes(value))]);
     }
 
     toggleFieldSettings(fieldId, targetElement) {
@@ -576,9 +544,7 @@ export class ListOrderDialog extends Component {
             if (temps.visibility !== undefined) props.visibility = temps.visibility;
             if (temps.string !== undefined) {
                 props.string = temps.string;
-                const orderListItem = this.state.orderList.find(
-                    (f) => f.id === fieldId
-                );
+                const orderListItem = this.state.orderList.find((f) => f.id === fieldId);
                 if (orderListItem) orderListItem.string = props.string;
             }
             if (temps.widget !== undefined) props.widget = temps.widget;
@@ -597,5 +563,6 @@ ListOrderDialog.props = {
     getListFields: {type: Function},
     root: {type: Object},
     viewId: {type: Number},
+    archColumns: {type: Array, optional: true},
 };
 ListOrderDialog.template = "list_view_order.ListOrderDialog";

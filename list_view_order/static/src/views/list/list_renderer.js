@@ -21,6 +21,7 @@ export const patchListViewRendererController = () => ({
         this.actionService = useService("action");
         this.dialogService = useService("dialog");
         this.originalNonInvisibleColumns = [];
+        this._isDestroyed = false;
         const list = this.props.list;
         const {actionId, actionType} = this.env.config || {};
 
@@ -78,24 +79,33 @@ export const patchListViewRendererController = () => ({
                 this.originalNonInvisibleColumns = this.allColumns.filter(
                     (col) => !this.evalColumnInvisible(col.column_invisible)
                 );
-                if (this.isStateInitialized) {
+                if (this.isStateInitialized && !this._isDestroyed) {
                     await this.initializeColumns(this.props);
                 }
             });
 
             onWillUpdateProps(async (nextProps) => {
-                if (this.isStateInitialized) {
+                if (this.isStateInitialized && !this._isDestroyed) {
                     await this.initializeColumns(nextProps);
                 }
             });
 
-            onWillDestroy(stopListening);
+            onWillDestroy(() => {
+                this._isDestroyed = true;
+                stopListening();
+            });
         }
     },
 
     async initializeColumns(props) {
+        if (this._isDestroyed) {
+            return;
+        }
         if (this.isStateInitialized) {
             this.state.allModelColumns = await this.processModelFields(props.list);
+        }
+        if (this._isDestroyed) {
+            return;
         }
 
         let archColumns = [];
@@ -105,6 +115,9 @@ export const patchListViewRendererController = () => ({
         this.allColumns = archColumns;
 
         const result = await this.getCustomActiveColumns(props.list);
+        if (this._isDestroyed) {
+            return;
+        }
         if (this.isStateInitialized) {
             this.state.isCustomOrder = result.isCustomOrder;
         }
@@ -204,14 +217,11 @@ export const patchListViewRendererController = () => ({
         });
     },
 
-    getActiveColumns(list) {
+    getActiveColumns() {
         if (this.isStateInitialized && this.state.isCustomOrder) {
             return this.columns;
         }
         return this.allColumns.filter((col) => {
-            if (list.isGrouped && col.widget === "handle") {
-                return false; // no handle column if the list is grouped
-            }
             if (col.optional && !this.optionalActiveFields[col.name]) {
                 return false;
             }
@@ -243,12 +253,26 @@ export const patchListViewRendererController = () => ({
     },
 
     async getCustomActiveColumns(list) {
+        if (this._isDestroyed) {
+            return {
+                columns: [],
+                isCustomOrder: false,
+                customKeyOptionalFields: false,
+            };
+        }
         const orderList = await this.orm.call(
             "list.order",
             "action_get_list_order",
             [user.context.uid, this.props.list.resModel, this.env.config.viewId],
             {}
         );
+        if (this._isDestroyed) {
+            return {
+                columns: [],
+                isCustomOrder: false,
+                customKeyOptionalFields: false,
+            };
+        }
 
         if (orderList.length === 0) {
             return {
@@ -477,6 +501,7 @@ export const patchListViewRendererController = () => ({
             getListFields: this.getListFields.bind(this),
             root: this.props.list.model.root,
             viewId: this.env.config.viewId,
+            archColumns: this.props.archInfo?.columns || [],
         };
         this.dialogService.add(ListOrderDialog, dialogProps);
     },

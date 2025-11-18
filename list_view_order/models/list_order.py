@@ -141,6 +141,7 @@ class ListOrder(models.Model):
                 "widget": line.field_widget or "",
                 "string": line.field_string or "",
                 "decorations": line.field_decorations or "",
+                "field_type": line.ir_model_field_id.ttype,
             }
             for line in list_order.list_order_line_ids
         ]

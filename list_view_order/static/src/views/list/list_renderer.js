@@ -180,6 +180,7 @@ export const patchListViewRendererController = () => ({
 
         return Object.entries(fields).map(([fieldName, field]) => ({
             type: "field",
+            field_type: field.field_type,
             name: field.id,
             label: field.string || fieldName,
             widget: field.widget,
@@ -300,6 +301,9 @@ export const patchListViewRendererController = () => ({
 
             const fieldsRegistry = registry.category("fields");
             let fieldComponent = order.widget && fieldsRegistry.get(order.widget);
+            if (!fieldComponent) {
+                fieldComponent = fieldsRegistry.get(column.field_type);
+            }
 
             let decorations = {};
             if (order.decorations) {

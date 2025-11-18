@@ -5,7 +5,7 @@
     "website": "https://www.mihranthalhath.com",
     "license": "OPL-1",
     "category": "Tools",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "depends": ["web"],
     "data": [
         "security/res_group.xml",

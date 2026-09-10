@@ -324,7 +324,18 @@ export const patchListViewRendererController = () => ({
             }
 
             const fieldsRegistry = registry.category("fields");
-            let fieldComponent = order.widget && fieldsRegistry.get(order.widget);
+            let fieldComponent = null;
+
+            if (order.widget) {
+                const widgetKey = fieldsRegistry.contains(order.widget)
+                    ? order.widget
+                    : `list.${order.widget}`;
+
+                if (fieldsRegistry.contains(widgetKey)) {
+                    fieldComponent = fieldsRegistry.get(widgetKey);
+                }
+            }
+
             if (!fieldComponent) {
                 fieldComponent = fieldsRegistry.get(column.field_type);
             }
